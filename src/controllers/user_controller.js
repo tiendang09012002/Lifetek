@@ -2,7 +2,6 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
 
 const axios = require('axios');
 const qs = require('qs');
-const mongoose = require('mongoose');
 const Log = require('../models/logModel');
 const Client = require('../models/clientModel');
 const clientId = 'F71GS9fzJUpwfgAyVcb8iBndQWEa';
@@ -87,11 +86,12 @@ const createUser = async (req, res) => {
     const accessToken = await getToken(USED_SCOPE);
     const userEndpoint = `${host}:9443/scim2/Users`;
     const { body } = req;
-
+    const iam = await Client.find({clientId,clientSecret})
+    console.log(iam);
     if (process.env.IAM_ENABLE !== "true") {
         return res.json("IAM is disabled, user creation is not allowed.")
     }
-    if (!process.env.IAM_CLIENT_ID || !process.env.IAM_CLIENT_SECRET) {
+    if (!iam) {
         return res.json('Missing IAM config for clientId in ENV file')
     }
     const user = {

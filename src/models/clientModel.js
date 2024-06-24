@@ -4,8 +4,8 @@ const conn = require('../config/appConn');
 const clientIamSchema = new mongoose.Schema(
     {
         clientId: String,
-        IamclientSecret: String,
-        IamclientId: String,
+        iamClientSecret: String,
+        iamClientId: String,
     },
     {
         timestamps: true,
