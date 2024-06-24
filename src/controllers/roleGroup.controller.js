@@ -4,7 +4,7 @@ const RoleGroup = require('../models/roleGroup.model');
 const Employee = require('../models/employee.model');
 const RoleDeparment = require('../models/roleDepartment.model');
 const OrganizationUnit = require('../models/organizationUnit.model');
-const ClientIam = require('../models/clientModel')
+const Client = require('../models/clientModel')
 // const APIError = require('../../helpers/errors/APIError');
 const httpStatus = require('http-status');
 // const STATUS = require('../../variables/CONST_STATUS').STATUS;
@@ -16,6 +16,9 @@ const qs = require('qs');
 const https = require('https');
 const dotenv = require('dotenv');
 dotenv.config()
+const host = `https://identity.lifetek.vn`;
+const tokenEndpoint = `${host}:9443/oauth2/token`;
+const ROLE_VIEW_SCOPE = 'internal_role_mgt_view';
 
 const agent = new https.Agent({
   rejectUnauthorized: false,
@@ -31,51 +34,83 @@ async function load(req, res, next, id) {
   }
   next();
 }
+
+const getToken = async (scope, iamClientId, iamClientSecret) => {
+  const data = qs.stringify({
+    'grant_type': 'client_credentials',
+    'scope': scope,
+  });
+
+  const config = {
+    method: 'post',
+    url: tokenEndpoint,
+    headers: {
+      'Authorization': 'Basic ' + Buffer.from(iamClientId + ':' + iamClientSecret).toString('base64'),
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    data: data,
+    httpsAgent: agent
+  };
+
+  try {
+    const response = await axios(config);
+    return response.data.access_token;
+  } catch (error) {
+    console.error('Error fetching access token:', error.response ? error.response.data : error.message);
+    throw error;
+  }
+};
+const getRoleAttributes = async (roleCode, accessToken) => {
+  const roleEndpoint = `https://identity.lifetek.vn:9443/scim2/v2/Roles/${roleCode}`;
+
+  const config = {
+    method: 'get',
+    url: roleEndpoint,
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+  };
+
+  try {
+    const response = await axios(config);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching role attributes:', error.response ? error.response.data : error.message);
+    throw error;
+  }
+};
+
 /**
  * list roleGroup
  */
 async function list(req, res, next) {
   try {
-    //khai báo host endpoint
-    const host = `https://identity.lifetek.vn`;
-    const tokenEndpoint = `${host}:9443/oauth2/token`;
     //khai báo respsone data rolegroups
-    const { limit = 500, skip = 0, clientId, iamClientId, iamClientSecret, scope, sort, filter = {}, selector } = req.query;
+    const { limit = 500, skip = 0, clientId, scope, sort, filter = {}, selector } = req.query;
+    //Nếu ko có clientID trả về lỗi
     if (!clientId) {
       return res.status(400).json({ message: "ClientId required" })
     }
     else {
-      //kiểm tra IAM_ENABLE
+      //kiểm tra IAM_ENABLE == "TRUE"
       if (process.env.IAM_ENABLE == "TRUE") {
-        //kiểm tra clientID và clientSecret có trong mẫu cho trước hay không
-        const IamClient = await ClientIam.find({ clientId: clientId })
+        //kiểm tra clientId có trong tb clientIam không
+        const IamClient = await Client.find({ clientId: clientId })
         if (IamClient) {
           const iamClientId = IamClient[0].iamClientId
           const iamClientSecret = IamClient[0].iamClientSecret
+          //kiểm tra iamClientId và iamClientSecret tồn tại không
           if (iamClientId || iamClientSecret) {
-            const data = qs.stringify({
-              'grant_type': 'client_credentials',
-              'scope': scope
-            });
-            const config = {
-              method: 'post',
-              url: tokenEndpoint,
-              headers: {
-                'Authorization': 'Basic ' + Buffer.from(iamClientId + ':' + iamClientSecret).toString('base64'),
-                'Content-Type': 'application/x-www-form-urlencoded'
-              },
-              data: data,
-              httpsAgent: agent
-            };
-            try {
-              //lấy được accesstoken từ response.data.access_token
-              const response = await axios(config);
+            //lấy được accesstoken từ response.data.access_token
+            const access_token = getToken(scope, iamClientId, iamClientSecret)
+            if (access_token) {
               const userEndpoint = `https://administrator.lifetek.vn:251/role-groups`;
               const configRole = {
                 method: 'get',
                 url: userEndpoint,
                 headers: {
-                  'Authorization': `Bearer ${response.data.access_token}`,
+                  'Authorization': `Bearer ${access_token}`,
                   'Content-Type': 'application/json'
                 },
                 httpsAgent: agent
@@ -85,22 +120,23 @@ async function list(req, res, next) {
                 response_role_group = await axios(configRole);
                 return res.json(response_role_group.data);
               } catch (error) {
+                //trả về lỗi nếu ko call được api list role
                 console.error('Error fetching role attributes:', error.response ? error.response.data : error.message);
                 return next(error);
               }
-            } catch (error) {
-              console.error('Error fetching access token:', error.response ? error.response.data : error.message);
-              return next(error);
             }
           }
           else {
+            //trả về lỗi nếu trong bảng clientIam ko có clientID và clientSecret
             return res.json({ message: "Invalid AIM config for clientId" })
           }
         } else {
+          //trả về lỗi nếu tb ko tồn tại clientId
           return res.status(400).json({ message: "No AIM config for clientId" })
         }
       }
       else {
+        //nếu proccess.env.enable != "TRUE" tìm các bản ghi có clientId trùng khớp
         console.log('zo day')
         const listRoleGroups = await RoleGroup.list({ filter: { clientId: clientId } }, { limit, skip, sort, selector });
         return res.json(listRoleGroups);
