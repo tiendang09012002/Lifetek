@@ -9,7 +9,6 @@ const Client = require('../models/clientModel')
 const httpStatus = require('http-status');
 // const STATUS = require('../../variables/CONST_STATUS').STATUS;
 // const User = require('../users/user.model');
-const Client = require('../models/clientModel');
 // const Role = require('../role/role.model');
 const lodash = require('lodash');
 const axios = require('axios');
