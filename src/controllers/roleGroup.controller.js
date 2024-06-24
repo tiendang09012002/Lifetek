@@ -108,7 +108,6 @@ async function list(req, res, next) {
             const access_token = getToken(scope, iamClientId, iamClientSecret)
             if (access_token) {
               const userEndpoint = `https://administrator.lifetek.vn:251/role-groups?clientId=${clientId}`;
-              // const userEndpoint = `https://identity.lifetek.vn:9443/scim2/v2/Roles/`;
               const configRole = {
                 method: 'get',
                 url: userEndpoint,
