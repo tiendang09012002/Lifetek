@@ -4,23 +4,18 @@ const RoleGroup = require('../models/roleGroup.model');
 const Employee = require('../models/employee.model');
 const RoleDeparment = require('../models/roleDepartment.model');
 const OrganizationUnit = require('../models/organizationUnit.model');
+const ClientIam = require('../models/clientModel')
 // const APIError = require('../../helpers/errors/APIError');
 const httpStatus = require('http-status');
 // const STATUS = require('../../variables/CONST_STATUS').STATUS;
 // const User = require('../users/user.model');
 // const Role = require('../role/role.model');
 const lodash = require('lodash');
-// const Client = require('../oauth/client.model');
 const axios = require('axios');
 const qs = require('qs');
 const https = require('https');
-const dotenv = require('dotenv')
+const dotenv = require('dotenv');
 dotenv.config()
-const clientId = 'F71GS9fzJUpwfgAyVcb8iBndQWEa';
-const clientSecret = 'cEfVp17FnyLBEIfv5JLs75n2EZA1yAK2KNCU8ffJwaIa';
-const host = `https://identity.lifetek.vn`;
-const tokenEndpoint = `${host}:9443/oauth2/token`;
-const ROLE_VIEW_SCOPE = 'internal_role_mgt_view';
 
 const agent = new https.Agent({
   rejectUnauthorized: false,
@@ -36,50 +31,6 @@ async function load(req, res, next, id) {
   }
   next();
 }
-const getToken = async (scope) => {
-  const data = qs.stringify({
-    'grant_type': 'client_credentials',
-    'scope': scope,
-  });
-
-  const config = {
-    method: 'post',
-    url: tokenEndpoint,
-    headers: {
-      'Authorization': 'Basic ' + Buffer.from(clientId + ':' + clientSecret).toString('base64'),
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    data: data,
-  };
-
-  try {
-    const response = await axios(config);
-    return response.data.access_token;
-  } catch (error) {
-    console.error('Error fetching access token:', error.response ? error.response.data : error.message);
-    throw error;
-  }
-};
-const getRoleAttributes = async (roleCode, accessToken) => {
-  const roleEndpoint = `https://identity.lifetek.vn:9443/scim2/v2/Roles/${roleCode}`;
-
-  const config = {
-    method: 'get',
-    url: roleEndpoint,
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-  };
-
-  try {
-    const response = await axios(config);
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching role attributes:', error.response ? error.response.data : error.message);
-    throw error;
-  }
-};
 /**
  * list roleGroup
  */
@@ -89,90 +40,72 @@ async function list(req, res, next) {
     const host = `https://identity.lifetek.vn`;
     const tokenEndpoint = `${host}:9443/oauth2/token`;
     //khai báo respsone data rolegroups
-    let response_role_group;
-    //code cũ
-    // const { limit = 500, skip = 0, sort, filter = {}, selector } = req.query;
-    //code cũ
-
-    const { limit = 500, skip = 0, clientId, clientSecret, scope, sort, filter = {}, selector } = req.query;
+    const { limit = 500, skip = 0, clientId, iamClientId, iamClientSecret, scope, sort, filter = {}, selector } = req.query;
     if (!clientId) {
-
-      //code cũ
-      //do code dự án carbon k có clientId
-      // const listRoleGroups = await RoleGroup.list({ limit, skip, sort, selector });
-      // console.log('Không có clientId');
-      // return res.json(listRoleGroups);
-      //code cũ
-
-
       return res.status(400).json({ message: "ClientId required" })
     }
     else {
       //kiểm tra IAM_ENABLE
-      if (process.env.IAM_ENABLE == "true") {
+      if (process.env.IAM_ENABLE == "TRUE") {
         //kiểm tra clientID và clientSecret có trong mẫu cho trước hay không
-        if (process.env.IAM_CLIENT_ID.includes(clientId) || process.env.IAM_CLIENT_SECRET.includes(clientSecret)) {
-          const data = qs.stringify({
-            'grant_type': 'client_credentials',
-            'scope': scope
-          });
-          const config = {
-            method: 'post',
-            url: tokenEndpoint,
-            headers: {
-              'Authorization': 'Basic ' + Buffer.from(clientId + ':' + clientSecret).toString('base64'),
-              'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            data: data,
-            httpsAgent: agent
-          };
-          try {
-            //lấy được accesstoken từ response.data.access_token
-            const response = await axios(config);
-            const userEndpoint = `https://administrator.lifetek.vn:251/role-groups`;
-            const configRole = {
-              method: 'get',
-              url: userEndpoint,
+        const IamClient = await ClientIam.find({ clientId: clientId })
+        if (IamClient) {
+          const iamClientId = IamClient[0].iamClientId
+          const iamClientSecret = IamClient[0].iamClientSecret
+          if (iamClientId || iamClientSecret) {
+            const data = qs.stringify({
+              'grant_type': 'client_credentials',
+              'scope': scope
+            });
+            const config = {
+              method: 'post',
+              url: tokenEndpoint,
               headers: {
-                'Authorization': `Bearer ${response.data.access_token}`,
-                'Content-Type': 'application/json'
+                'Authorization': 'Basic ' + Buffer.from(iamClientId + ':' + iamClientSecret).toString('base64'),
+                'Content-Type': 'application/x-www-form-urlencoded'
               },
+              data: data,
               httpsAgent: agent
             };
             try {
-              //lấy data list role groups
-              response_role_group = await axios(configRole);
-              return res.json(response_role_group.data);
+              //lấy được accesstoken từ response.data.access_token
+              const response = await axios(config);
+              const userEndpoint = `https://administrator.lifetek.vn:251/role-groups`;
+              const configRole = {
+                method: 'get',
+                url: userEndpoint,
+                headers: {
+                  'Authorization': `Bearer ${response.data.access_token}`,
+                  'Content-Type': 'application/json'
+                },
+                httpsAgent: agent
+              };
+              try {
+                //lấy data list role groups
+                response_role_group = await axios(configRole);
+                return res.json(response_role_group.data);
+              } catch (error) {
+                console.error('Error fetching role attributes:', error.response ? error.response.data : error.message);
+                return next(error);
+              }
             } catch (error) {
-              console.error('Error fetching role attributes:', error.response ? error.response.data : error.message);
+              console.error('Error fetching access token:', error.response ? error.response.data : error.message);
               return next(error);
             }
-          } catch (error) {
-            console.error('Error fetching access token:', error.response ? error.response.data : error.message);
-            return next(error);
           }
-        }
-        else {
-          return res.json({ message: "Invalid AIM config for clientId" })
+          else {
+            return res.json({ message: "Invalid AIM config for clientId" })
+          }
+        } else {
+          return res.status(400).json({ message: "No AIM config for clientId" })
         }
       }
       else {
-        console.log("vào đây")
-        const listRoleGroups = await RoleGroup.find({ status: 1, clientId: clientId }, { limit, skip, sort, selector });
+        console.log('zo day')
+        const listRoleGroups = await RoleGroup.list({ filter: { clientId: clientId } }, { limit, skip, sort, selector });
         return res.json(listRoleGroups);
       }
     }
-
-    //code cũ
-    // const newFilter = {
-    //   ...filter,
-    //   clientId,
-    // };
-    // const roleGroups = response_role_group.data
-    // const roleGroups = await RoleGroup.list({ limit, skip, sort, filter: newFilter, selector });
-    // return res.json(roleGroups);
-    //code cũ
-
 
   } catch (e) {
     next(e);
