@@ -9,7 +9,6 @@ const Client = require('../models/clientModel')
 const httpStatus = require('http-status');
 // const STATUS = require('../../variables/CONST_STATUS').STATUS;
 // const User = require('../users/user.model');
-const Client = require('../models/clientModel');
 // const Role = require('../role/role.model');
 const lodash = require('lodash');
 // const Client = require('../oauth/client.model');
@@ -100,6 +99,7 @@ async function list(req, res, next) {
       if (process.env.IAM_ENABLE == "TRUE") {
         //kiểm tra clientId có trong tb clientIam không
         const IamClient = await Client.find({ clientId: clientId })
+        console.log(IamClient)
         if (IamClient) {
           const iamClientId = IamClient[0].iamClientId
           const iamClientSecret = IamClient[0].iamClientSecret
