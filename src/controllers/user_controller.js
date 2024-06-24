@@ -19,23 +19,29 @@ const getToken = async (scope) => {
         'grant_type': 'client_credentials',
         'scope': scope
     });
+    const iam = await Client.find({ clientId, clientSecret });
+    if (iam.length > 0) {
+        const config = {
+            method: 'post',
+            url: tokenEndpoint,
+            headers: {
+                'Authorization': 'Basic ' + Buffer.from(clientId + ':' + clientSecret).toString('base64'),
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            data: data
+        };
 
-    const config = {
-        method: 'post',
-        url: tokenEndpoint,
-        headers: {
-            'Authorization': 'Basic ' + Buffer.from(clientId + ':' + clientSecret).toString('base64'),
-            'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        data: data
-    };
+        try {
+            const response = await axios(config);
+            return response.data.access_token;
+        } catch (error) {
+            return console.error('Error fetching access token:', error.response ? error.response.data : error.message);
+        };
+    }
+    else{
+        return console.log("Missing IAM config for clientId, clientSecret")
+    }
 
-    try {
-        const response = await axios(config);
-        return response.data.access_token;
-    } catch (error) {
-        return console.error('Error fetching access token:', error.response ? error.response.data : error.message);
-    };
 };
 
 const getUserAttributes = async (username, accessToken) => {
@@ -86,13 +92,13 @@ const createUser = async (req, res) => {
     const accessToken = await getToken(USED_SCOPE);
     const userEndpoint = `${host}:9443/scim2/Users`;
     const { body } = req;
-    const iam = await Client.find({clientId,clientSecret})
+    const iam = await Client.find({ clientId, clientSecret })
     console.log(iam);
     if (process.env.IAM_ENABLE !== "true") {
         return res.json("IAM is disabled, user creation is not allowed.")
     }
-    if (!iam) {
-        return res.json('Missing IAM config for clientId in ENV file')
+    if (iam.length === 0) {
+        return res.json('Missing IAM config for clientId, clientSecret ')
     }
     const user = {
         "schemas": [],
@@ -146,17 +152,7 @@ const createUser = async (req, res) => {
     };
 };
 
-// Example usage
-const create_User = (req, res) => {
-    getToken(USED_SCOPE).then(token => {
-        return createUser(token).then(() => {
-            console.log('User creation process finished.');
-        });
-    });
-}
-
 module.exports = {
-    create_User: create_User,
     getToken,
     createUser
 };
