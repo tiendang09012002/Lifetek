@@ -40,18 +40,20 @@ async function list(req, res, next) {
     const host = `https://identity.lifetek.vn`;
     const tokenEndpoint = `${host}:9443/oauth2/token`;
     //khai báo respsone data rolegroups
-    const { limit = 500, skip = 0, clientId, iamClientId, iamClientSecret, scope, sort, filter = {}, selector } = req.query;
+    const { limit = 500, skip = 0, clientId, scope, sort, filter = {}, selector } = req.query;
+    //Nếu ko có clientID trả về lỗi
     if (!clientId) {
       return res.status(400).json({ message: "ClientId required" })
     }
     else {
-      //kiểm tra IAM_ENABLE
+      //kiểm tra IAM_ENABLE == "TRUE"
       if (process.env.IAM_ENABLE == "TRUE") {
-        //kiểm tra clientID và clientSecret có trong mẫu cho trước hay không
+        //kiểm tra clientId có trong tb clientIam không
         const IamClient = await ClientIam.find({ clientId: clientId })
         if (IamClient) {
           const iamClientId = IamClient[0].iamClientId
           const iamClientSecret = IamClient[0].iamClientSecret
+          //kiểm tra iamClientId và iamClientSecret tồn tại không
           if (iamClientId || iamClientSecret) {
             const data = qs.stringify({
               'grant_type': 'client_credentials',
@@ -85,22 +87,27 @@ async function list(req, res, next) {
                 response_role_group = await axios(configRole);
                 return res.json(response_role_group.data);
               } catch (error) {
+                //trả về lỗi nếu ko call được api list role
                 console.error('Error fetching role attributes:', error.response ? error.response.data : error.message);
                 return next(error);
               }
             } catch (error) {
+               //trả về lỗi nếu ko call được api get token
               console.error('Error fetching access token:', error.response ? error.response.data : error.message);
               return next(error);
             }
           }
           else {
+             //trả về lỗi nếu trong bảng clientIam ko có clientID và clientSecret
             return res.json({ message: "Invalid AIM config for clientId" })
           }
         } else {
+          //trả về lỗi nếu tb ko tồn tại clientId
           return res.status(400).json({ message: "No AIM config for clientId" })
         }
       }
       else {
+        //nếu proccess.env.enable != "TRUE" tìm các bản ghi có clientId trùng khớp
         console.log('zo day')
         const listRoleGroups = await RoleGroup.list({ filter: { clientId: clientId } }, { limit, skip, sort, selector });
         return res.json(listRoleGroups);
