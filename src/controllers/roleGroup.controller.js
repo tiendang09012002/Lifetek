@@ -25,8 +25,10 @@ const agent = new https.Agent({
  */
 async function load(req, res, next, id) {
   // eslint-disable-next-line no-param-reassign
-  req.roleGroup = await RoleGroup.findById(id);
+  // req.roleGroup = await RoleGroup.findById(id);
+  req.roleGroup = [];
   if (!req.roleGroup) {
+    return res.status(404).json({ msg: 'roleGroup not found' });
     next(new APIError('Item not found', httpStatus.NOT_FOUND, true));
   }
   next();
@@ -500,9 +502,7 @@ async function iamUserBussinessRole(req, res, next) {
       return res.json('Missing IAM config for clientId')
     }
 
-    if (!process.env.IAM_CLIENT_ID || !process.env.IAM_CLIENT_SECRET) {
-      return res.status(400).json({ msg: 'Missing IAM config for clientId in ENV file' });
-    }
+
     const token = await getToken(ROLE_VIEW_SCOPE);
     // console.log(token);
     if (!token) {
