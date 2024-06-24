@@ -9,12 +9,14 @@ const Client = require('../models/clientModel')
 const httpStatus = require('http-status');
 // const STATUS = require('../../variables/CONST_STATUS').STATUS;
 // const User = require('../users/user.model');
+const Client = require('../models/clientModel');
 // const Role = require('../role/role.model');
 const lodash = require('lodash');
+// const Client = require('../oauth/client.model');
 const axios = require('axios');
 const qs = require('qs');
 const https = require('https');
-const dotenv = require('dotenv');
+const dotenv = require('dotenv')
 dotenv.config()
 const host = `https://identity.lifetek.vn`;
 const tokenEndpoint = `${host}:9443/oauth2/token`;
@@ -28,8 +30,10 @@ const agent = new https.Agent({
  */
 async function load(req, res, next, id) {
   // eslint-disable-next-line no-param-reassign
-  req.roleGroup = await RoleGroup.findById(id);
+  // req.roleGroup = await RoleGroup.findById(id);
+  req.roleGroup = [];
   if (!req.roleGroup) {
+    return res.status(404).json({ msg: 'roleGroup not found' });
     next(new APIError('Item not found', httpStatus.NOT_FOUND, true));
   }
   next();
@@ -80,7 +84,6 @@ const getRoleAttributes = async (roleCode, accessToken) => {
     throw error;
   }
 };
-
 /**
  * list roleGroup
  */
@@ -508,9 +511,6 @@ function get(req, res) {
 async function iamUserBussinessRole(req, res, next) {
   try {
     const { userId } = req.params;
-    console.log(userId);
-
-    console.log(userId);
 
     if (!userId) {
       return res.status(400).json({ msg: 'userId required' });
@@ -525,9 +525,14 @@ async function iamUserBussinessRole(req, res, next) {
       return res.json(role);
     }
 
-    if (!process.env.IAM_CLIENT_ID || !process.env.IAM_CLIENT_SECRET) {
-      return res.status(400).json({ msg: 'Missing IAM config for clientId in ENV file' });
+    const iam = await Client.find({ iamClientId: clientId, iamClientSecret: clientSecret })
+    console.log(iam);
+
+    if (!iam) {
+      return res.json('Missing IAM config for clientId')
     }
+
+
     const token = await getToken(ROLE_VIEW_SCOPE);
     // console.log(token);
     if (!token) {
@@ -535,7 +540,7 @@ async function iamUserBussinessRole(req, res, next) {
     }
 
     const roleAttributes = await getRoleAttributes(userId, token);
-    console.log(roleAttributes);
+    // console.log(roleAttributes);
     if (!roleAttributes) {
       return res.status(400).json({ msg: 'Failed to get roles' });
     }
