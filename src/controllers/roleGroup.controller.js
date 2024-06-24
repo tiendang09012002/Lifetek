@@ -99,7 +99,6 @@ async function list(req, res, next) {
       if (process.env.IAM_ENABLE == "TRUE") {
         //kiểm tra clientId có trong tb clientIam không
         const IamClient = await Client.find({ clientId: clientId })
-        console.log(IamClient)
         if (IamClient) {
           const iamClientId = IamClient[0].iamClientId
           const iamClientSecret = IamClient[0].iamClientSecret
@@ -108,7 +107,8 @@ async function list(req, res, next) {
             //lấy được accesstoken từ response.data.access_token
             const access_token = getToken(scope, iamClientId, iamClientSecret)
             if (access_token) {
-              const userEndpoint = `https://administrator.lifetek.vn:251/role-groups`;
+              const userEndpoint = `https://administrator.lifetek.vn:251/role-groups?clientId=${clientId}`;
+              // const userEndpoint = `https://identity.lifetek.vn:9443/scim2/v2/Roles/`;
               const configRole = {
                 method: 'get',
                 url: userEndpoint,
@@ -525,15 +525,23 @@ async function iamUserBussinessRole(req, res, next) {
       return res.json(role);
     }
 
-    const iam = await Client.find({ iamClientId: clientId, iamClientSecret: clientSecret })
+    const IamClient = await Client.find();
+    console.log(IamClient);
+    if (!IamClient) {
+      return res.status(404).json({ msg: 'IamClient not found' });
+
+    }
+    const iamClientId = IamClient[0].iamClientId
+    const iamClientSecret = IamClient[0].iamClientSecret
+
+    const iam = await Client.find({ iamClientId: iamClientId, iamClientSecret: iamClientSecret })
     console.log(iam);
 
     if (!iam) {
       return res.json('Missing IAM config for clientId')
     }
 
-
-    const token = await getToken(ROLE_VIEW_SCOPE);
+    const token = await getToken(ROLE_VIEW_SCOPE, iamClientId, iamClientSecret);
     // console.log(token);
     if (!token) {
       return res.status(400).json({ msg: 'Failed to get IAM token' });
