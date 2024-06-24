@@ -4,7 +4,7 @@ const axios = require('axios');
 const qs = require('qs');
 const mongoose = require('mongoose');
 const Log = require('../models/logModel');
-
+const Client = require('../models/clientModel');
 const clientId = 'F71GS9fzJUpwfgAyVcb8iBndQWEa';
 const clientSecret = 'cEfVp17FnyLBEIfv5JLs75n2EZA1yAK2KNCU8ffJwaIa';
 const host = `https://identity.lifetek.vn`;
