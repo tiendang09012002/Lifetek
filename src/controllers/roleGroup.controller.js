@@ -17,6 +17,8 @@ const qs = require('qs');
 const https = require('https');
 const dotenv = require('dotenv')
 dotenv.config()
+const clientId = 'F71GS9fzJUpwfgAyVcb8iBndQWEa';
+const clientSecret = 'cEfVp17FnyLBEIfv5JLs75n2EZA1yAK2KNCU8ffJwaIa';
 const host = `https://identity.lifetek.vn`;
 const tokenEndpoint = `${host}:9443/oauth2/token`;
 const ROLE_VIEW_SCOPE = 'internal_role_mgt_view';
@@ -524,15 +526,23 @@ async function iamUserBussinessRole(req, res, next) {
       return res.json(role);
     }
 
-    const iam = await Client.find({ iamClientId: clientId, iamClientSecret: clientSecret })
+    const IamClient = await Client.find();
+    console.log(IamClient);
+    if (!IamClient) {
+      return res.status(404).json({ msg: 'IamClient not found' });
+
+    }
+    const iamClientId = IamClient[0].iamClientId
+    const iamClientSecret = IamClient[0].iamClientSecret
+
+    const iam = await Client.find({ iamClientId: iamClientId, iamClientSecret: iamClientSecret })
     console.log(iam);
 
     if (!iam) {
       return res.json('Missing IAM config for clientId')
     }
 
-
-    const token = await getToken(ROLE_VIEW_SCOPE);
+    const token = await getToken(ROLE_VIEW_SCOPE, iamClientId, iamClientSecret);
     // console.log(token);
     if (!token) {
       return res.status(400).json({ msg: 'Failed to get IAM token' });
