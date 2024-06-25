@@ -1,17 +1,10 @@
-/* eslint-disable consistent-return */
-/* eslint-disable camelcase */
 const RoleGroup = require('../models/roleGroup.model');
 const Employee = require('../models/employee.model');
 const RoleDeparment = require('../models/roleDepartment.model');
 const OrganizationUnit = require('../models/organizationUnit.model');
 const Client = require('../models/clientModel')
-// const APIError = require('../../helpers/errors/APIError');
 const httpStatus = require('http-status');
-// const STATUS = require('../../variables/CONST_STATUS').STATUS;
-// const User = require('../users/user.model');
-// const Role = require('../role/role.model');
 const lodash = require('lodash');
-// const Client = require('../oauth/client.model');
 const axios = require('axios');
 const qs = require('qs');
 const https = require('https');
@@ -28,8 +21,6 @@ const agent = new https.Agent({
  * Load roleGroup and append to req
  */
 async function load(req, res, next, id) {
-  // eslint-disable-next-line no-param-reassign
-  // req.roleGroup = await RoleGroup.findById(id);
   req.roleGroup = [];
   if (!req.roleGroup) {
     return res.status(404).json({ msg: 'roleGroup not found' });
@@ -247,7 +238,6 @@ async function update(req, res, next) {
       host = appHost(uri);
     }
     return roleGroup.save().then(async result => {
-      // await Employee.updateMany({ roleGroupSource: code }, { firstLogin: true });
       await axios
         .put(
           `https://${host}/api/employees/first-login`,
