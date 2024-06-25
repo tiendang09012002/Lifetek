@@ -19,7 +19,8 @@ const getToken = async (scope) => {
         'grant_type': 'client_credentials',
         'scope': scope
     });
-    const iam = await Client.findOne({ clientId, clientSecret });
+    const iam = await Client.findOne({ iamClientId:clientId, iamClientSecret:clientSecret });
+
     if (iam) {
         const config = {
             method: 'post',
@@ -92,11 +93,12 @@ const createUser = async (req, res) => {
     const accessToken = await getToken(USED_SCOPE);
     const userEndpoint = `${host}:9443/scim2/Users`;
     const { body } = req;
-    const iam = await Client.findOne({ clientId, clientSecret }).countDocuments()
+    const iam = await Client.findOne({ iamClientId: clientId, iamClientSecret: clientSecret })
+    console.log(iam);
     if (process.env.IAM_ENABLE !== "TRUE") {
         return res.json("IAM is disabled, user creation is not allowed.")
     }
-    if (iam <=0) {
+    if (!iam) {
         return res.json('Missing IAM config for clientId, clientSecret ')
     }
     const user = {
@@ -150,7 +152,6 @@ const createUser = async (req, res) => {
         }
     };
 };
-
 module.exports = {
     getToken,
     createUser
