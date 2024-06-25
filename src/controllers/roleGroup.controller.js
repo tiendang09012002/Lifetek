@@ -1,27 +1,22 @@
-/* eslint-disable consistent-return */
-/* eslint-disable camelcase */
 const RoleGroup = require('../models/roleGroup.model');
 const Employee = require('../models/employee.model');
 const RoleDeparment = require('../models/roleDepartment.model');
 const OrganizationUnit = require('../models/organizationUnit.model');
-// const APIError = require('../../helpers/errors/APIError');
 const httpStatus = require('http-status');
-// const STATUS = require('../../variables/CONST_STATUS').STATUS;
-// const User = require('../users/user.model');
 const Client = require('../models/clientModel');
-// const Role = require('../role/role.model');
 const lodash = require('lodash');
-// const Client = require('../oauth/client.model');
 const axios = require('axios');
 const qs = require('qs');
 const https = require('https');
 const dotenv = require('dotenv')
-dotenv.config()
+
 const clientId = 'F71GS9fzJUpwfgAyVcb8iBndQWEa';
 const clientSecret = 'cEfVp17FnyLBEIfv5JLs75n2EZA1yAK2KNCU8ffJwaIa';
 const host = `https://identity.lifetek.vn`;
 const tokenEndpoint = `${host}:9443/oauth2/token`;
 const ROLE_VIEW_SCOPE = 'internal_role_mgt_view';
+
+dotenv.config()
 
 const agent = new https.Agent({
   rejectUnauthorized: false,
@@ -35,7 +30,6 @@ async function load(req, res, next, id) {
   req.roleGroup = [];
   if (!req.roleGroup) {
     return res.status(404).json({ msg: 'roleGroup not found' });
-    next(new APIError('Item not found', httpStatus.NOT_FOUND, true));
   }
   next();
 }
@@ -539,43 +533,59 @@ async function deletedList(req, res, next) {
 function get(req, res) {
   res.json(req.roleGroup);
 }
-async function iamUserBussinessRole(req, res, next) {
+
+/**
+ * Lấy danh sách vai trò kinh doanh của một người dùng từ hệ thống IAM.
+ * @param {Object} req - Đối tượng yêu cầu.
+ * @param {Object} res - Đối tượng phản hồi.
+ * @returns {Promise<void>} - Một promise sẽ được giải quyết khi danh sách vai trò kinh doanh được lấy và gửi trong phản hồi.
+ */
+async function iamUserBussinessRole(req, res) {
   try {
+    // Trích xuất userId từ các tham số yêu cầu
     const { userId } = req.params;
 
+    // Kiểm tra xem userId có được cung cấp hay không, nếu không, trả về lỗi 400
     if (!userId) {
-      return res.status(400).json({ msg: 'userId required' });
+      return res.status(400).json({ msg: 'userId cần được cung cấp' });
     }
 
-    if (!process.env.IAM_ENABLE) {
+    // Kiểm tra xem IAM có được kích hoạt hay không, nếu không, lấy vai trò từ cơ sở dữ liệu local
+    if (process.env.IAM_ENABLE !== 'TRUE') {
       const role = await RoleGroup.findOne({ userId });
 
+      // Nếu không tìm thấy vai trò, trả về lỗi 404
       if (!role) {
-        return res.status(404).json({ msg: 'Role not found' });
+        return res.status(404).json({ msg: 'Không tìm thấy vai trò' });
       }
+      // Nếu tìm thấy vai trò, gửi vai trò trong phản hồi
       return res.json(role);
     }
 
+    // Tìm kiếm client IAM bằng clientId và clientSecret
     const iam = await Client.find({ iamClientId: clientId, iamClientSecret: clientSecret })
     console.log(iam);
 
+    // Nếu không tìm thấy client IAM, trả về thông báo cho biết thiếu cấu hình IAM
     if (!iam) {
-      return res.json('Missing IAM config for clientId')
+      return res.json('Thiếu cấu hình IAM cho clientId')
     }
 
-
+    // Lấy token IAM với ROLE_VIEW_SCOPE
     const token = await getToken(ROLE_VIEW_SCOPE);
-    // console.log(token);
+    // Kiểm tra nếu không thể lấy token, trả về lỗi 400
     if (!token) {
-      return res.status(400).json({ msg: 'Failed to get IAM token' });
+      return res.status(400).json({ msg: 'Không thể lấy token IAM' });
     }
 
+    // Lấy các thuộc tính vai trò của người dùng bằng userId và token
     const roleAttributes = await getRoleAttributes(userId, token);
-    // console.log(roleAttributes);
+    // Kiểm tra nếu không thể lấy các thuộc tính vai trò, trả về lỗi 400
     if (!roleAttributes) {
-      return res.status(400).json({ msg: 'Failed to get roles' });
+      return res.status(400).json({ msg: 'Không thể lấy vai trò' });
     }
 
+    // Chuyển đổi các thuộc tính vai trò thành định dạng phù hợp cho phản hồi
     const convertedRole = {
       userId: userId,
       roles: roleAttributes.permissions.map(role => ({
@@ -584,12 +594,16 @@ async function iamUserBussinessRole(req, res, next) {
       })),
     };
 
+    // Gửi vai trò đã chuyển đổi trong phản hồi
     return res.json(convertedRole);
   } catch (error) {
+    // Ghi log bất kỳ lỗi nào xảy ra và trả về lỗi 500
     console.error(error);
-    return res.status(500).json({ msg: 'Internal Server Error' });
+    return res.status(500).json({ msg: 'Lỗi máy chủ nội bộ' });
   }
 }
+
+
 module.exports = {
   list,
   load,
