@@ -17,8 +17,6 @@ const qs = require('qs');
 const https = require('https');
 const dotenv = require('dotenv')
 dotenv.config()
-const clientId = 'F71GS9fzJUpwfgAyVcb8iBndQWEa';
-const clientSecret = 'cEfVp17FnyLBEIfv5JLs75n2EZA1yAK2KNCU8ffJwaIa';
 const host = `https://identity.lifetek.vn`;
 const tokenEndpoint = `${host}:9443/oauth2/token`;
 const ROLE_VIEW_SCOPE = 'internal_role_mgt_view';
@@ -109,7 +107,7 @@ async function list(req, res, next) {
             //lấy được accesstoken từ response.data.access_token
             const access_token = getToken(scope, iamClientId, iamClientSecret)
             if (access_token) {
-              const userEndpoint = `https://administrator.lifetek.vn:251/role-groups`;
+              const userEndpoint = `https://administrator.lifetek.vn:251/role-groups?clientId=${clientId}`;
               const configRole = {
                 method: 'get',
                 url: userEndpoint,
