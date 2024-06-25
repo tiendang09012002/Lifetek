@@ -2,13 +2,8 @@ const RoleGroup = require('../models/roleGroup.model');
 const Employee = require('../models/employee.model');
 const RoleDeparment = require('../models/roleDepartment.model');
 const OrganizationUnit = require('../models/organizationUnit.model');
-<<<<<<< HEAD
-const Client = require('../models/clientModel')
-const httpStatus = require('http-status');
-=======
 const httpStatus = require('http-status');
 const Client = require('../models/clientModel');
->>>>>>> 74cfd8d7652e39d73656721c3cbdf705daae16f2
 const lodash = require('lodash');
 const axios = require('axios');
 const qs = require('qs');
