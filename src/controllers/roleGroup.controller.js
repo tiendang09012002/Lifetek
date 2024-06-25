@@ -2,17 +2,26 @@ const RoleGroup = require('../models/roleGroup.model');
 const Employee = require('../models/employee.model');
 const RoleDeparment = require('../models/roleDepartment.model');
 const OrganizationUnit = require('../models/organizationUnit.model');
+<<<<<<< HEAD
 const Client = require('../models/clientModel')
 const httpStatus = require('http-status');
+=======
+const httpStatus = require('http-status');
+const Client = require('../models/clientModel');
+>>>>>>> 74cfd8d7652e39d73656721c3cbdf705daae16f2
 const lodash = require('lodash');
 const axios = require('axios');
 const qs = require('qs');
 const https = require('https');
 const dotenv = require('dotenv')
-dotenv.config()
+
+const clientId = 'F71GS9fzJUpwfgAyVcb8iBndQWEa';
+const clientSecret = 'cEfVp17FnyLBEIfv5JLs75n2EZA1yAK2KNCU8ffJwaIa';
 const host = `https://identity.lifetek.vn`;
 const tokenEndpoint = `${host}:9443/oauth2/token`;
 const ROLE_VIEW_SCOPE = 'internal_role_mgt_view';
+
+dotenv.config()
 
 const agent = new https.Agent({
   rejectUnauthorized: false,
@@ -24,12 +33,10 @@ async function load(req, res, next, id) {
   req.roleGroup = [];
   if (!req.roleGroup) {
     return res.status(404).json({ msg: 'roleGroup not found' });
-    next(new APIError('Item not found', httpStatus.NOT_FOUND, true));
   }
   next();
 }
-
-const getToken = async (scope, iamClientId, iamClientSecret) => {
+const getToken = async (scope) => {
   const data = qs.stringify({
     'grant_type': 'client_credentials',
     'scope': scope,
@@ -39,11 +46,10 @@ const getToken = async (scope, iamClientId, iamClientSecret) => {
     method: 'post',
     url: tokenEndpoint,
     headers: {
-      'Authorization': 'Basic ' + Buffer.from(iamClientId + ':' + iamClientSecret).toString('base64'),
+      'Authorization': 'Basic ' + Buffer.from(clientId + ':' + clientSecret).toString('base64'),
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     data: data,
-    httpsAgent: agent
   };
 
   try {
@@ -79,62 +85,94 @@ const getRoleAttributes = async (roleCode, accessToken) => {
  */
 async function list(req, res, next) {
   try {
+    //khai báo host endpoint
+    const host = `https://identity.lifetek.vn`;
+    const tokenEndpoint = `${host}:9443/oauth2/token`;
     //khai báo respsone data rolegroups
-    const { limit = 500, skip = 0, clientId, scope, sort, filter = {}, selector } = req.query;
-    //Nếu ko có clientID trả về lỗi
+    let response_role_group;
+    //code cũ
+    // const { limit = 500, skip = 0, sort, filter = {}, selector } = req.query;
+    //code cũ
+
+    const { limit = 500, skip = 0, clientId, clientSecret, scope, sort, filter = {}, selector } = req.query;
     if (!clientId) {
+
+      //code cũ
+      //do code dự án carbon k có clientId
+      // const listRoleGroups = await RoleGroup.list({ limit, skip, sort, selector });
+      // console.log('Không có clientId');
+      // return res.json(listRoleGroups);
+      //code cũ
+
+
       return res.status(400).json({ message: "ClientId required" })
     }
     else {
-      //kiểm tra IAM_ENABLE == "TRUE"
-      if (process.env.IAM_ENABLE == "TRUE") {
-        //kiểm tra clientId có trong tb clientIam không
-        const IamClient = await Client.find({ clientId: clientId })
-        if (IamClient) {
-          const iamClientId = IamClient[0].iamClientId
-          const iamClientSecret = IamClient[0].iamClientSecret
-          //kiểm tra iamClientId và iamClientSecret tồn tại không
-          if (iamClientId || iamClientSecret) {
+      //kiểm tra IAM_ENABLE
+      if (process.env.IAM_ENABLE == "true") {
+        //kiểm tra clientID và clientSecret có trong mẫu cho trước hay không
+        if (process.env.IAM_CLIENT_ID.includes(clientId) || process.env.IAM_CLIENT_SECRET.includes(clientSecret)) {
+          const data = qs.stringify({
+            'grant_type': 'client_credentials',
+            'scope': scope
+          });
+          const config = {
+            method: 'post',
+            url: tokenEndpoint,
+            headers: {
+              'Authorization': 'Basic ' + Buffer.from(clientId + ':' + clientSecret).toString('base64'),
+              'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            data: data,
+            httpsAgent: agent
+          };
+          try {
             //lấy được accesstoken từ response.data.access_token
-            const access_token = getToken(scope, iamClientId, iamClientSecret)
-            if (access_token) {
-              const userEndpoint = `https://administrator.lifetek.vn:251/role-groups?clientId=${clientId}`;
-              const configRole = {
-                method: 'get',
-                url: userEndpoint,
-                headers: {
-                  'Authorization': `Bearer ${access_token}`,
-                  'Content-Type': 'application/json'
-                },
-                httpsAgent: agent
-              };
-              try {
-                //lấy data list role groups
-                response_role_group = await axios(configRole);
-                return res.json(response_role_group.data);
-              } catch (error) {
-                //trả về lỗi nếu ko call được api list role
-                console.error('Error fetching role attributes:', error.response ? error.response.data : error.message);
-                return next(error);
-              }
+            const response = await axios(config);
+            const userEndpoint = `https://administrator.lifetek.vn:251/role-groups`;
+            const configRole = {
+              method: 'get',
+              url: userEndpoint,
+              headers: {
+                'Authorization': `Bearer ${response.data.access_token}`,
+                'Content-Type': 'application/json'
+              },
+              httpsAgent: agent
+            };
+            try {
+              //lấy data list role groups
+              response_role_group = await axios(configRole);
+              return res.json(response_role_group.data);
+            } catch (error) {
+              console.error('Error fetching role attributes:', error.response ? error.response.data : error.message);
+              return next(error);
             }
+          } catch (error) {
+            console.error('Error fetching access token:', error.response ? error.response.data : error.message);
+            return next(error);
           }
-          else {
-            //trả về lỗi nếu trong bảng clientIam ko có clientID và clientSecret
-            return res.json({ message: "Invalid AIM config for clientId" })
-          }
-        } else {
-          //trả về lỗi nếu tb ko tồn tại clientId
-          return res.status(400).json({ message: "No AIM config for clientId" })
+        }
+        else {
+          return res.json({ message: "Invalid AIM config for clientId" })
         }
       }
       else {
-        //nếu proccess.env.enable != "TRUE" tìm các bản ghi có clientId trùng khớp
-        console.log('zo day')
-        const listRoleGroups = await RoleGroup.list({ filter: { clientId: clientId } }, { limit, skip, sort, selector });
+        console.log("vào đây")
+        const listRoleGroups = await RoleGroup.find({ status: 1, clientId: clientId }, { limit, skip, sort, selector });
         return res.json(listRoleGroups);
       }
     }
+
+    //code cũ
+    // const newFilter = {
+    //   ...filter,
+    //   clientId,
+    // };
+    // const roleGroups = response_role_group.data
+    // const roleGroups = await RoleGroup.list({ limit, skip, sort, filter: newFilter, selector });
+    // return res.json(roleGroups);
+    //code cũ
+
 
   } catch (e) {
     next(e);
@@ -497,51 +535,59 @@ async function deletedList(req, res, next) {
 function get(req, res) {
   res.json(req.roleGroup);
 }
-async function iamUserBussinessRole(req, res, next) {
+
+/**
+ * Lấy danh sách vai trò kinh doanh của một người dùng từ hệ thống IAM.
+ * @param {Object} req - Đối tượng yêu cầu.
+ * @param {Object} res - Đối tượng phản hồi.
+ * @returns {Promise<void>} - Một promise sẽ được giải quyết khi danh sách vai trò kinh doanh được lấy và gửi trong phản hồi.
+ */
+async function iamUserBussinessRole(req, res) {
   try {
+    // Trích xuất userId từ các tham số yêu cầu
     const { userId } = req.params;
 
+    // Kiểm tra xem userId có được cung cấp hay không, nếu không, trả về lỗi 400
     if (!userId) {
-      return res.status(400).json({ msg: 'userId required' });
+      return res.status(400).json({ msg: 'userId cần được cung cấp' });
     }
 
-    if (!process.env.IAM_ENABLE) {
+    // Kiểm tra xem IAM có được kích hoạt hay không, nếu không, lấy vai trò từ cơ sở dữ liệu local
+    if (process.env.IAM_ENABLE !== 'TRUE') {
       const role = await RoleGroup.findOne({ userId });
 
+      // Nếu không tìm thấy vai trò, trả về lỗi 404
       if (!role) {
-        return res.status(404).json({ msg: 'Role not found' });
+        return res.status(404).json({ msg: 'Không tìm thấy vai trò' });
       }
+      // Nếu tìm thấy vai trò, gửi vai trò trong phản hồi
       return res.json(role);
     }
 
-    const IamClient = await Client.find();
-    console.log(IamClient);
-    if (!IamClient) {
-      return res.status(404).json({ msg: 'IamClient not found' });
-
-    }
-    const iamClientId = IamClient[0].iamClientId
-    const iamClientSecret = IamClient[0].iamClientSecret
-
-    const iam = await Client.find({ iamClientId: iamClientId, iamClientSecret: iamClientSecret })
+    // Tìm kiếm client IAM bằng clientId và clientSecret
+    const iam = await Client.find({ iamClientId: clientId, iamClientSecret: clientSecret })
     console.log(iam);
 
+    // Nếu không tìm thấy client IAM, trả về thông báo cho biết thiếu cấu hình IAM
     if (!iam) {
-      return res.json('Missing IAM config for clientId')
+      return res.json('Thiếu cấu hình IAM cho clientId')
     }
 
-    const token = await getToken(ROLE_VIEW_SCOPE, iamClientId, iamClientSecret);
-    // console.log(token);
+    // Lấy token IAM với ROLE_VIEW_SCOPE
+    const token = await getToken(ROLE_VIEW_SCOPE);
+    // Kiểm tra nếu không thể lấy token, trả về lỗi 400
     if (!token) {
-      return res.status(400).json({ msg: 'Failed to get IAM token' });
+      return res.status(400).json({ msg: 'Không thể lấy token IAM' });
     }
 
+    // Lấy các thuộc tính vai trò của người dùng bằng userId và token
     const roleAttributes = await getRoleAttributes(userId, token);
-    // console.log(roleAttributes);
+    // Kiểm tra nếu không thể lấy các thuộc tính vai trò, trả về lỗi 400
     if (!roleAttributes) {
-      return res.status(400).json({ msg: 'Failed to get roles' });
+      return res.status(400).json({ msg: 'Không thể lấy vai trò' });
     }
 
+    // Chuyển đổi các thuộc tính vai trò thành định dạng phù hợp cho phản hồi
     const convertedRole = {
       userId: userId,
       roles: roleAttributes.permissions.map(role => ({
@@ -550,12 +596,16 @@ async function iamUserBussinessRole(req, res, next) {
       })),
     };
 
+    // Gửi vai trò đã chuyển đổi trong phản hồi
     return res.json(convertedRole);
   } catch (error) {
+    // Ghi log bất kỳ lỗi nào xảy ra và trả về lỗi 500
     console.error(error);
-    return res.status(500).json({ msg: 'Internal Server Error' });
+    return res.status(500).json({ msg: 'Lỗi máy chủ nội bộ' });
   }
 }
+
+
 module.exports = {
   list,
   load,
