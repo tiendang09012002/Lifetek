@@ -2,8 +2,8 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
 
 const axios = require('axios');
 const qs = require('qs');
-const Log = require('../models/logModel');
-const Client = require('../models/clientModel');
+const Log = require('./logModel');
+const Client = require('./clientModel');
 const clientId = 'F71GS9fzJUpwfgAyVcb8iBndQWEa';
 const clientSecret = 'cEfVp17FnyLBEIfv5JLs75n2EZA1yAK2KNCU8ffJwaIa';
 const host = `https://identity.lifetek.vn`;
@@ -38,7 +38,7 @@ const getToken = async (scope) => {
             return console.error('Error fetching access token:', error.response ? error.response.data : error.message);
         };
     }
-    else{
+    else {
         return console.log("Missing IAM config for clientId, clientSecret")
     }
 
@@ -96,7 +96,7 @@ const createUser = async (req, res) => {
     if (process.env.IAM_ENABLE !== "TRUE") {
         return res.json("IAM is disabled, user creation is not allowed.")
     }
-    if (iam <=0) {
+    if (iam <= 0) {
         return res.json('Missing IAM config for clientId, clientSecret ')
     }
     const user = {

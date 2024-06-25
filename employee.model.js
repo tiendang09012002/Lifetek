@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const conn = require('../config/appConn');
+const conn = require('./appConn');
 
 const roleTaskSchema = new mongoose.Schema(
   {
