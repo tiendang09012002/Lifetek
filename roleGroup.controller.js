@@ -46,13 +46,15 @@ async function list(req, res, next) {
         //kiểm tra clientId có trong tb clientIam không
         const IamClient = await Client.find({ clientId: clientId })
         if (IamClient) {
-          const ClientIam = checkClientIam(IamClient)
+          const ClientIam = await checkClientIam(IamClient)
           //kiểm tra iamClientId và iamClientSecret tồn tại không
           if (ClientIam.iamClientId || ClientIam.iamClientSecret) {
             //lấy được accesstoken từ response.data.access_token
-            const access_token = GetToken(scope, ClientIam.iamClientId, ClientIam.iamClientSecret)
+            const access_token = await GetToken(scope, ClientIam.iamClientId, ClientIam.iamClientSecret)
+            console.log(access_token)
             if (access_token) {
-              getApi.getListsRoles(host, access_token, clientId)
+              const data = await getApi.getListsRoles(host, access_token, clientId)
+              return res.json({ data: data })
             }
           }
           else {

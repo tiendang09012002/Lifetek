@@ -1,6 +1,7 @@
-const host = `https://identity.lifetek.vn`;
-const tokenEndpoint = `${host}:9443/oauth2/token`;
 const https = require('https');
+const axios = require('axios')
+// const host = `https://identity.lifetek.vn`;
+// const tokenEndpoint = `${host}:9443/oauth2/token`;
 
 const agent = new https.Agent({
     rejectUnauthorized: false,
@@ -20,11 +21,11 @@ const getListsRoles = async (host, access_token, clientId) => {
     try {
         //lấy data list role groups
         response_role_group = await axios(configRole);
-        return res.json(response_role_group.data);
+        return response_role_group.data
     } catch (error) {
         //trả về lỗi nếu ko call được api list role
         console.error('Error fetching role attributes:', error.response ? error.response.data : error.message);
-        return next(error);
+        throw error;
     }
 }
 

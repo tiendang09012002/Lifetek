@@ -10,6 +10,4 @@ const checkClientIam = (IamClient) => {
     })
 }
 
-module.exports = {
-    checkClientIam
-}
+module.exports = checkClientIam
